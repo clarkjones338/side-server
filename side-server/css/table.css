@@ -1,0 +1,118 @@
+/* Side Server Table CSS Starts */
+
+.ss-table-container {
+  max-width: 100% !important;
+  max-height: 350px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  margin: 0 0 1rem 0 !important;
+  border-radius: 1px !important;
+  background: #fbfbfb !important;
+  border: 1px solid #aaaaaa !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03) !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.dark .ss-table-container {
+  background: #1e1e1e !important;
+  border-color: #777777 !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.ss-table-title {
+  margin: 0 !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  border-bottom: 1px solid #aaaaaa !important;
+  text-align: center !important;
+  background: #f1f1f1 !important;
+}
+
+.dark .ss-table-title {
+  color: #e0e0e0 !important;
+  border-bottom-color: #777777 !important;
+  background: #2a2a2a !important;
+}
+
+.ss-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  font-size: 10pt !important;
+}
+
+.ss-table-header th {
+  padding: 0.6rem 0.8rem !important;
+  text-align: center !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  background: #ebebeb !important;
+  border-bottom: 2px solid #aaaaaa !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.03em !important;
+  word-wrap: break-word !important;
+}
+
+.ss-table-header th:not(:last-child) {
+  border-right: 1px solid #aaaaaa !important;
+}
+
+.dark .ss-table-header th {
+  color: #cccccc !important;
+  background: #2a2a2a !important;
+  border-bottom-color: #888888 !important;
+}
+
+.dark .ss-table-header th:not(:last-child) {
+  border-right-color: #888888 !important;
+}
+
+.ss-table-row td {
+  background-color: #fbfbfb !important;
+  padding: 0.5rem 0.75rem !important;
+  border-bottom: 1px solid #dddddd !important;
+  color: #000000 !important;
+  text-align: center !important;
+  word-wrap: break-word !important;
+}
+
+.ss-table-row td:not(:last-child) {
+  border-right: 1px solid #dddddd !important;
+}
+
+.dark .ss-table-row td {
+  background-color: #1e1e1e !important;
+  border-bottom-color: #444444 !important;
+  color: #bbbbbb !important;
+}
+
+.dark .ss-table-row td:not(:last-child) {
+  border-right-color: #444444 !important;
+}
+
+.ss-table-row:hover td {
+  background-color: #f5f6f8 !important;
+  cursor: pointer !important;
+}
+
+.dark .ss-table-row:hover td {
+  background-color: #333333 !important;
+}
+
+@media (max-width: 600px) {
+  .ss-table-title {
+    font-size: 1rem !important;
+    padding: 0.6rem 0.8rem !important;
+  }
+
+  .ss-table-header th,
+  .ss-table-row td {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 8pt !important;
+  }
+}
+
+/* Side Server Table CSS Ends */

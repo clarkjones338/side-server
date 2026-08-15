@@ -492,6 +492,23 @@ exports.replsocketprefix = './logs/repl/';
 exports.replsocketmode = 0o600;
 
 /**
+ * postgres - PostgreSQL connection configuration for side-server database
+ * @type {import('pg').PoolConfig | null}
+ */
+exports.postgres = null;
+
+/*
+// example:
+exports.postgres = {
+	host: '127.0.0.1',
+	port: 5432,
+	user: 'ubuntu',
+	password: '',
+	database: 'side-server',
+};
+*/
+
+/**
  * disablehotpatchall - disables `/hotpatch all`. Generally speaking, there's a
  * pretty big need for /hotpatch all - convenience. The only advantage any hotpatch
  * forms other than all is lower RAM use (which is only a problem for Main because
@@ -593,6 +610,35 @@ exports.grouplist = [
 		bypassall: true,
 		lockdown: true,
 		promote: '~u',
+		roomowner: true,
+		roombot: true,
+		roommod: true,
+		roomdriver: true,
+		forcewin: true,
+		declare: true,
+		addhtml: true,
+		rangeban: true,
+		makeroom: true,
+		editroom: true,
+		editprivacy: true,
+		potd: true,
+		disableladder: true,
+		gdeclare: true,
+		gamemanagement: true,
+		exportinputlog: true,
+		tournaments: true,
+	},
+	{
+		symbol: '&',
+		id: "leader",
+		name: "Leader",
+		inherit: '@',
+		jurisdiction: 'u',
+		globalonly: true,
+
+		bypassall: true,
+		lockdown: true,
+		promote: '&u',
 		roomowner: true,
 		roombot: true,
 		roommod: true,
