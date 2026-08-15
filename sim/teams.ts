@@ -517,7 +517,7 @@ export const Teams = new class Teams {
 		} else if (line.startsWith('Tera Type: ')) {
 			line = line.slice(11);
 			set.teraType = aggressive ? line.replace(/[^a-zA-Z0-9]/g, '') : line;
-		} else if (SideMod.parseCustomData(set, line, aggressive, toID)) {
+		} else if (SideMod.parseCustomData(set, line, !!aggressive, toID)) {
 			// successfully parsed by SideMod
 		} else if (line === 'Gigantamax: Yes') {
 			set.gigantamax = true;
@@ -583,7 +583,7 @@ export const Teams = new class Teams {
 					set.ability = sanitize(set.ability);
 					set.gender = sanitize(set.gender);
 					set.nature = sanitize(set.nature);
-					SideMod.sanitizeCustomData(set, aggressive, sanitize, toID);
+					SideMod.sanitizeCustomData(set, !!aggressive, sanitize, toID);
 
 					const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 					if (set.evs) {

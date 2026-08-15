@@ -204,8 +204,9 @@ export class PGTable<T extends Record<string, any>> {
 				if (value.length === 0) {
 					clauses.push('FALSE');
 				} else {
-					const hasNull = value.includes(null);
-					const nonNullValues = value.filter(v => v !== null);
+					const arr = value as PrimitiveValue[];
+					const hasNull = arr.includes(null);
+					const nonNullValues = arr.filter((v): v is Exclude<PrimitiveValue, null> => v !== null);
 					if (nonNullValues.length === 0) {
 						clauses.push(`${quotedKey} IS NULL`);
 					} else if (hasNull) {
@@ -213,9 +214,9 @@ export class PGTable<T extends Record<string, any>> {
 						clauses.push(`(${quotedKey} IN (${placeholders}) OR ${quotedKey} IS NULL)`);
 						values.push(...nonNullValues);
 					} else {
-						const placeholders = value.map(() => `$${idx++}`).join(', ');
+						const placeholders = arr.map(() => `$${idx++}`).join(', ');
 						clauses.push(`${quotedKey} IN (${placeholders})`);
-						values.push(...value);
+						values.push(...arr);
 					}
 				}
 			} else if (typeof value === 'object' && !(value instanceof Date) && !Buffer.isBuffer(value)) {
@@ -275,8 +276,9 @@ export class PGTable<T extends Record<string, any>> {
 						break;
 					case 'in':
 						if (Array.isArray(opVal) && opVal.length > 0) {
-							const hasNull = opVal.includes(null);
-							const nonNull = opVal.filter(v => v !== null);
+							const arr = opVal as PrimitiveValue[];
+							const hasNull = arr.includes(null);
+							const nonNull = arr.filter((v): v is Exclude<PrimitiveValue, null> => v !== null);
 							if (nonNull.length === 0) {
 								clauses.push(`${quotedKey} IS NULL`);
 							} else if (hasNull) {
@@ -284,9 +286,9 @@ export class PGTable<T extends Record<string, any>> {
 								clauses.push(`(${quotedKey} IN (${placeholders}) OR ${quotedKey} IS NULL)`);
 								values.push(...nonNull);
 							} else {
-								const placeholders = opVal.map(() => `$${idx++}`).join(', ');
+								const placeholders = arr.map(() => `$${idx++}`).join(', ');
 								clauses.push(`${quotedKey} IN (${placeholders})`);
-								values.push(...opVal);
+								values.push(...arr);
 							}
 						} else {
 							clauses.push('FALSE');
@@ -294,8 +296,9 @@ export class PGTable<T extends Record<string, any>> {
 						break;
 					case 'notIn':
 						if (Array.isArray(opVal) && opVal.length > 0) {
-							const hasNull = opVal.includes(null);
-							const nonNull = opVal.filter(v => v !== null);
+							const arr = opVal as PrimitiveValue[];
+							const hasNull = arr.includes(null);
+							const nonNull = arr.filter((v): v is Exclude<PrimitiveValue, null> => v !== null);
 							if (nonNull.length === 0) {
 								clauses.push(`${quotedKey} IS NOT NULL`);
 							} else if (hasNull) {
@@ -303,9 +306,9 @@ export class PGTable<T extends Record<string, any>> {
 								clauses.push(`(${quotedKey} NOT IN (${placeholders}) AND ${quotedKey} IS NOT NULL)`);
 								values.push(...nonNull);
 							} else {
-								const placeholders = opVal.map(() => `$${idx++}`).join(', ');
+								const placeholders = arr.map(() => `$${idx++}`).join(', ');
 								clauses.push(`${quotedKey} NOT IN (${placeholders})`);
-								values.push(...opVal);
+								values.push(...arr);
 							}
 						} else {
 							clauses.push('TRUE');
