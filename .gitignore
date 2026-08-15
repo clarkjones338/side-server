@@ -71,3 +71,8 @@ local_settings.py
 pip-log.txt
 # redis dumps
 *.rdb
+
+# AI Assistant & Skills
+.agents/
+.skills/
+skills-lock.json

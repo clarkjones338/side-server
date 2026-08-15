@@ -3,7 +3,7 @@ CORE FILE CHANGES LOG
 ================================================================================
 
 Initial Created: 2026-08-15 03:10:49 UTC
-Last Updated:    2026-08-15 04:55:00 UTC
+Last Updated:    2026-08-15 10:45:00 UTC
 Author:          clarkjones338 <clarkjones338@gmail.com>
 
 The following core files outside the side-server directory were modified:
@@ -146,5 +146,310 @@ Diff:
  	{
  		symbol: '#',
  		id: "owner",
-================================================================================
 
+
+--------------------------------------------------------------------------------
+5. sim/teams.ts
+--------------------------------------------------------------------------------
+Path: sim/teams.ts
+Changes:
+- Imported SideMod helper from "../side-server/sim/sim-mod".
+- Added hp, status, bstBoosts, and hpMultiplier fields to PokemonSet interface.
+- Added SideMod.packCustomData(set) to Teams.pack() to encode BST boosts and HP multipliers.
+- Updated Teams.unpack() to split misc metadata into 10 items and call SideMod.unpackCustomData().
+- Added SideMod.exportCustomData(set) to Teams.exportSet().
+- Added SideMod.parseCustomData() check to Teams.parseExportedTeamLine().
+- Added SideMod.sanitizeCustomData() to Teams.import().
+
+Diff:
+@@ -8,6 +8,7 @@
+  */
+ 
+ import { Dex, toID } from './dex';
++import { SideMod } from '../side-server/sim/sim-mod';
+ import type { PRNG, PRNGSeed } from './prng';
+ 
+ interface ExportOptions {
+@@ -114,6 +115,14 @@ export interface PokemonSet {
+ 	 * Tera Type
+ 	 */
+ 	teraType?: string;
++	/** Starting HP percentage */
++	hp?: number;
++	/** Starting Status condition */
++	status?: string;
++	/** Custom Base Stat % Boosts */
++	bstBoosts?: { atk: number, def: number, spa: number, spd: number, spe: number };
++	/** Custom Max HP Multiplier */
++	hpMultiplier?: number;
+ }
+ 
+ export const Teams = new class Teams {
+@@ -200,12 +209,16 @@ export const Teams = new class Teams {
+ 			}
+ 
+ 			if (set.pokeball || set.hpType || set.gigantamax ||
+-				(set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10) || set.teraType) {
++				(set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10) || set.teraType ||
++				(set.hp !== undefined && set.hp !== 100) || set.status || set.bstBoosts) {
+ 				buf += `,${set.hpType || ''}`;
+ 				buf += `,${this.packName(set.pokeball || '')}`;
+ 				buf += `,${set.gigantamax ? 'G' : ''}`;
+ 				buf += `,${set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10 ? set.dynamaxLevel : ''}`;
+ 				buf += `,${set.teraType || ''}`;
++				buf += `,${set.hp !== undefined && set.hp !== 100 ? set.hp : ''}`;
++				buf += `,${set.status || ''}`;
++				buf += SideMod.packCustomData(set);
+ 			}
+ 		}
+ 
+@@ -326,9 +339,9 @@ export const Teams = new class Teams {
+ 			j = buf.indexOf(']', i);
+ 			let misc;
+ 			if (j < 0) {
+-				if (i < buf.length) misc = buf.substring(i).split(',', 6);
++				if (i < buf.length) misc = buf.substring(i).split(',', 10);
+ 			} else {
+-				if (i !== j) misc = buf.substring(i, j).split(',', 6);
++				if (i !== j) misc = buf.substring(i, j).split(',', 10);
+ 			}
+ 			if (misc) {
+ 				set.happiness = (misc[0] ? Number(misc[0]) : 255);
+@@ -337,6 +350,7 @@ export const Teams = new class Teams {
+ 				set.gigantamax = !!misc[3];
+ 				set.dynamaxLevel = (misc[4] ? Number(misc[4]) : 10);
+ 				set.teraType = misc[5];
++				SideMod.unpackCustomData(set, misc);
+ 			}
+ 			if (j < 0) break;
+ 			i = j + 1;
+@@ -418,6 +432,7 @@ export const Teams = new class Teams {
+ 		if (set.teraType && !useStatPoints) {
+ 			out += `Tera Type: ${set.teraType}  \n`;
+ 		}
++		out += SideMod.exportCustomData(set);
+ 
+ 		// stats
+ 		if (!hideStats) {
+@@ -502,6 +517,8 @@ export const Teams = new class Teams {
+ 		} else if (line.startsWith('Tera Type: ')) {
+ 			line = line.slice(11);
+ 			set.teraType = aggressive ? line.replace(/[^a-zA-Z0-9]/g, '') : line;
++		} else if (SideMod.parseCustomData(set, line, aggressive, toID)) {
++			// successfully parsed by SideMod
+ 		} else if (line === 'Gigantamax: Yes') {
+ 			set.gigantamax = true;
+ 		} else if (line.startsWith('EVs: ')) {
+@@ -566,6 +583,8 @@ export const Teams = new class Teams {
+ 					set.ability = sanitize(set.ability);
+ 					set.gender = sanitize(set.gender);
+ 					set.nature = sanitize(set.nature);
++					SideMod.sanitizeCustomData(set, aggressive, sanitize, toID);
++
+ 					const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+ 					if (set.evs) {
+ 						for (const statid in evs) {
+
+
+--------------------------------------------------------------------------------
+6. sim/pokemon.ts
+--------------------------------------------------------------------------------
+Path: sim/pokemon.ts
+Changes:
+- Imported SideMod helper from "../side-server/sim/sim-mod".
+- Replaced default full HP initialization in constructor with SideMod.applyCustomHPAndStatus(this)
+  to handle starting HP percentage and starting status conditions.
+- Applied SideMod.applyCustomBSTBoosts() and SideMod.applyCustomHPX() in setSpecies().
+- Applied SideMod.applyCustomHPXValue() in updateMaxHp().
+
+Diff:
+@@ -7,6 +7,7 @@
+ 
+ import { State } from './state';
+ import { toID } from './dex';
++import { SideMod } from '../side-server/sim/sim-mod';
+ import type { DynamaxOptions, MoveRequestData, PokemonMoveRequestData, PokemonSwitchRequestData } from './side';
+ 
+ /** A Pokemon's move slot. */
+@@ -502,7 +503,8 @@ export class Pokemon {
+ 		this.baseMaxhp = 0;
+ 		this.hp = 0;
+ 		this.clearVolatile();
+-		this.hp = this.maxhp;
++
++		SideMod.applyCustomHPAndStatus(this);
+ 	}
+ 
+ 	toJSON(): AnyObject {
+@@ -1401,9 +1403,13 @@ export class Pokemon {
+ 		this.knownType = true;
+ 		this.weighthg = species.weighthg;
+ 
+-		const stats = this.battle.spreadModify(this.species.baseStats, this.set);
++		const baseStats = SideMod.applyCustomBSTBoosts(this.species.baseStats, this.set);
++		const stats = this.battle.spreadModify(baseStats, this.set);
++
+ 		if (this.species.maxHP) stats.hp = this.species.maxHP;
+ 
++		SideMod.applyCustomHPX(stats, this.set);
++
+ 		if (!this.maxhp) {
+ 			this.baseMaxhp = stats.hp;
+ 			this.maxhp = stats.hp;
+@@ -1502,7 +1508,8 @@ export class Pokemon {
+ 	}
+ 
+ 	updateMaxHp() {
+-		const newBaseMaxHp = this.battle.statModify(this.species.baseStats, this.set, 'hp');
++		let newBaseMaxHp = this.battle.statModify(this.species.baseStats, this.set, 'hp');
++		newBaseMaxHp = SideMod.applyCustomHPXValue(newBaseMaxHp, this.set);
+ 		if (newBaseMaxHp === this.baseMaxhp) return;
+ 		this.baseMaxhp = newBaseMaxHp;
+ 		const newMaxHP = this.volatiles['dynamax'] ? (2 * this.baseMaxhp) : this.baseMaxhp;
+
+
+--------------------------------------------------------------------------------
+7. sim/side.ts
+--------------------------------------------------------------------------------
+Path: sim/side.ts
+Changes:
+- Imported SideMod helper from "../side-server/sim/sim-mod".
+- Replaced inline bracketed team position parsing in Side.chooseTeam() with SideMod.parseTeamPositions().
+- Added PokéRogue turn pass bypass check via SideMod.isPokeRogueBypass() in Side.choosePass().
+
+Diff:
+@@ -25,6 +25,7 @@ import { Pokemon, type EffectState } from './pokemon';
+ import { State } from './state';
+ import { toID } from './dex';
+ import { type Move } from './dex-moves';
++import { SideMod } from '../side-server/sim/sim-mod';
+ 
+ /** A single action that can be chosen. Choices will have one Action for each pokemon. */
+ export interface ChosenAction {
+@@ -1034,21 +1035,8 @@ export class Side {
+ 		}
+ 
+ 		const ruleTable = this.battle.ruleTable;
+-		let isBracketed = false;
+-		let teamData = data;
+-		if (data?.startsWith('[') && data.endsWith(']')) {
+-			isBracketed = true;
+-			teamData = data.slice(1, -1).trim();
+-		}
+-		let positions = teamData ?
+-			teamData.split(isBracketed || teamData.includes(',') || this.pokemon.length >= 10 ? ',' : '')
+-				.map(datum => parseInt(datum) - 1) :
+-			[...this.pokemon.keys()]; // autoChoose
+ 		const pickedTeamSize = this.pickedTeamSize();
+-
+-		// make sure positions is exactly of length pickedTeamSize
+-		// - If too big: the client automatically sends a full list, so we just trim it down to size
+-		if (!isBracketed) positions.splice(pickedTeamSize);
++		let positions = SideMod.parseTeamPositions(data || '', this.pokemon.length, pickedTeamSize);
+ 		// - If too small: we intentionally support only sending leads and having the sim fill in the rest
+ 		if (positions.length < pickedTeamSize) {
+ 			for (let i = 0; i < pickedTeamSize; i++) {
+@@ -1343,6 +1331,10 @@ export class Side {
+ 			break;
+ 		case 'move':
+ 			if (!pokemon.fainted && !pokemon.volatiles['commanding']) {
++				// Bypass the restriction if we are in a PokéRogue Format Battle.
++				// This Allows Catching in Pokerogue Formats.
++				if (SideMod.isPokeRogueBypass(this.battle.format.id)) break;
++
+ 				return this.emitChoiceError(`Can't pass: Your ${pokemon.name} must make a move (or switch)`);
+ 			}
+ 			break;
+
+
+--------------------------------------------------------------------------------
+8. sim/team-validator.ts
+--------------------------------------------------------------------------------
+Path: sim/team-validator.ts
+Changes:
+- Imported SideMod helper from "../side-server/sim/sim-mod".
+- Added livingPokemonCount tracking in TeamValidator.validateTeam() using SideMod.checkIfAlive().
+- Added team rejection check via SideMod.checkAllFainted() to prevent all-fainted teams.
+- Added SideMod.parseNicknameHack() in TeamValidator.validateSet() to parse [H:XX], [S:xxx], [BST:...], and [HPX:XX] tags.
+- Extended nickname character limit to 100 in TeamValidator.validateSet() and used SideMod.getNicknameLengthError().
+- Added SideMod.validateCustomHPAndStatus() in TeamValidator.validateSet().
+
+Diff:
+@@ -8,6 +8,7 @@
+  */
+ 
+ import { Dex, toID } from './dex';
++import { SideMod } from '../side-server/sim/sim-mod';
+ import type { MoveSource } from './dex-species';
+ import { Utils } from '../lib/utils';
+ import { Tags } from '../data/tags';
+@@ -425,6 +426,10 @@ export class TeamValidator {
+ 		const teamHas: { [k: string]: number } = {};
+ 		let lgpeStarterCount = 0;
+ 		let deoxysType;
++
++		// DECLARE TRACKER HERE, OUTSIDE THE LOOP
++		let livingPokemonCount = 0;
++
+ 		for (const set of team) {
+ 			if (!set) return [`You sent invalid team data. If you're not using a custom client, please report this as a bug.`];
+ 
+@@ -437,6 +442,9 @@ export class TeamValidator {
+ 				setProblems = (format.validateSet || this.validateSet).call(this, set, teamHas);
+ 			}
+ 
++			// CHECK IF ALIVE (after validateSet parses the nickname hack)
++			livingPokemonCount = SideMod.checkIfAlive(set, livingPokemonCount);
++
+ 			if (set.species === 'Pikachu-Starter' || set.species === 'Eevee-Starter') {
+ 				lgpeStarterCount++;
+ 				if (lgpeStarterCount === 2 && ruleTable.isBanned('nonexistent')) {
+@@ -469,6 +477,9 @@ export class TeamValidator {
+ 			}
+ 		}
+ 
++		// REJECTION BLOCK IF ALL POKEMON ARE 0% HP
++		SideMod.checkAllFainted(livingPokemonCount, problems);
++
+ 		for (const [rule, source, limit, bans] of ruleTable.complexTeamBans) {
+ 			let count = 0;
+ 			for (const ban of bans) {
+@@ -573,6 +584,8 @@ export class TeamValidator {
+ 			return [`This is not a Pokemon.`];
+ 		}
+ 
++		SideMod.parseNicknameHack(set);
++
+ 		let species = dex.species.get(set.species);
+ 		set.species = species.name;
+ 		// Backwards compatibility with old Gmax format
+@@ -582,15 +595,13 @@ export class TeamValidator {
+ 			if (set.name?.endsWith('-Gmax')) set.name = species.baseSpecies;
+ 			set.gigantamax = true;
+ 		}
+-		if (set.name && set.name.length > 18) {
++
++		// --- CHANGED NICKNAME LIMIT TO 100 ---
++		if (set.name && set.name.length > 100) {
+ 			if (set.name === set.species) {
+ 				set.name = species.baseSpecies;
+ 			} else {
+-				problems.push(`${set.species}'s nickname "${set.name}" is too long.`);
+-				problems.push(
+-					`(It's ${set.name.length} characters long, but should be 18 or less. ` +
+-					`Some characters, like emojis, may count as more than one.)`
+-				);
++				problems.push(...SideMod.getNicknameLengthError(set.species, set.name));
+ 			}
+ 		}
+ 		set.name = dex.getName(set.name);
+@@ -723,6 +734,8 @@ export class TeamValidator {
+ 			delete set.teraType;
+ 		}
+ 
++		SideMod.validateCustomHPAndStatus(set, name, problems, dex);
++
+ 		let problem = this.checkSpecies(set, species, tierSpecies, setHas);
+ 		if (problem) problems.push(problem);
+
+================================================================================

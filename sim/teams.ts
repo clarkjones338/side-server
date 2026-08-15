@@ -8,6 +8,7 @@
  */
 
 import { Dex, toID } from './dex';
+import { SideMod } from '../side-server/sim/sim-mod';
 import type { PRNG, PRNGSeed } from './prng';
 
 interface ExportOptions {
@@ -114,6 +115,14 @@ export interface PokemonSet {
 	 * Tera Type
 	 */
 	teraType?: string;
+	/** Starting HP percentage */
+	hp?: number;
+	/** Starting Status condition */
+	status?: string;
+	/** Custom Base Stat % Boosts */
+	bstBoosts?: { atk: number, def: number, spa: number, spd: number, spe: number };
+	/** Custom Max HP Multiplier */
+	hpMultiplier?: number;
 }
 
 export const Teams = new class Teams {
@@ -200,12 +209,16 @@ export const Teams = new class Teams {
 			}
 
 			if (set.pokeball || set.hpType || set.gigantamax ||
-				(set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10) || set.teraType) {
+				(set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10) || set.teraType ||
+				(set.hp !== undefined && set.hp !== 100) || set.status || set.bstBoosts) {
 				buf += `,${set.hpType || ''}`;
 				buf += `,${this.packName(set.pokeball || '')}`;
 				buf += `,${set.gigantamax ? 'G' : ''}`;
 				buf += `,${set.dynamaxLevel !== undefined && set.dynamaxLevel !== 10 ? set.dynamaxLevel : ''}`;
 				buf += `,${set.teraType || ''}`;
+				buf += `,${set.hp !== undefined && set.hp !== 100 ? set.hp : ''}`;
+				buf += `,${set.status || ''}`;
+				buf += SideMod.packCustomData(set);
 			}
 		}
 
@@ -326,9 +339,9 @@ export const Teams = new class Teams {
 			j = buf.indexOf(']', i);
 			let misc;
 			if (j < 0) {
-				if (i < buf.length) misc = buf.substring(i).split(',', 6);
+				if (i < buf.length) misc = buf.substring(i).split(',', 10);
 			} else {
-				if (i !== j) misc = buf.substring(i, j).split(',', 6);
+				if (i !== j) misc = buf.substring(i, j).split(',', 10);
 			}
 			if (misc) {
 				set.happiness = (misc[0] ? Number(misc[0]) : 255);
@@ -337,6 +350,7 @@ export const Teams = new class Teams {
 				set.gigantamax = !!misc[3];
 				set.dynamaxLevel = (misc[4] ? Number(misc[4]) : 10);
 				set.teraType = misc[5];
+				SideMod.unpackCustomData(set, misc);
 			}
 			if (j < 0) break;
 			i = j + 1;
@@ -418,6 +432,7 @@ export const Teams = new class Teams {
 		if (set.teraType && !useStatPoints) {
 			out += `Tera Type: ${set.teraType}  \n`;
 		}
+		out += SideMod.exportCustomData(set);
 
 		// stats
 		if (!hideStats) {
@@ -502,6 +517,8 @@ export const Teams = new class Teams {
 		} else if (line.startsWith('Tera Type: ')) {
 			line = line.slice(11);
 			set.teraType = aggressive ? line.replace(/[^a-zA-Z0-9]/g, '') : line;
+		} else if (SideMod.parseCustomData(set, line, aggressive, toID)) {
+			// successfully parsed by SideMod
 		} else if (line === 'Gigantamax: Yes') {
 			set.gigantamax = true;
 		} else if (line.startsWith('EVs: ')) {
@@ -566,6 +583,8 @@ export const Teams = new class Teams {
 					set.ability = sanitize(set.ability);
 					set.gender = sanitize(set.gender);
 					set.nature = sanitize(set.nature);
+					SideMod.sanitizeCustomData(set, aggressive, sanitize, toID);
+
 					const evs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 					if (set.evs) {
 						for (const statid in evs) {

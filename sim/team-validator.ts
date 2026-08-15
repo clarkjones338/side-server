@@ -8,6 +8,7 @@
  */
 
 import { Dex, toID } from './dex';
+import { SideMod } from '../side-server/sim/sim-mod';
 import type { MoveSource } from './dex-species';
 import { Utils } from '../lib/utils';
 import { Tags } from '../data/tags';
@@ -425,6 +426,10 @@ export class TeamValidator {
 		const teamHas: { [k: string]: number } = {};
 		let lgpeStarterCount = 0;
 		let deoxysType;
+
+		// DECLARE TRACKER HERE, OUTSIDE THE LOOP
+		let livingPokemonCount = 0;
+
 		for (const set of team) {
 			if (!set) return [`You sent invalid team data. If you're not using a custom client, please report this as a bug.`];
 
@@ -436,6 +441,9 @@ export class TeamValidator {
 			} else {
 				setProblems = (format.validateSet || this.validateSet).call(this, set, teamHas);
 			}
+
+			// CHECK IF ALIVE (after validateSet parses the nickname hack)
+			livingPokemonCount = SideMod.checkIfAlive(set, livingPokemonCount);
 
 			if (set.species === 'Pikachu-Starter' || set.species === 'Eevee-Starter') {
 				lgpeStarterCount++;
@@ -468,6 +476,9 @@ export class TeamValidator {
 				}
 			}
 		}
+
+		// REJECTION BLOCK IF ALL POKEMON ARE 0% HP
+		SideMod.checkAllFainted(livingPokemonCount, problems);
 
 		for (const [rule, source, limit, bans] of ruleTable.complexTeamBans) {
 			let count = 0;
@@ -573,6 +584,8 @@ export class TeamValidator {
 			return [`This is not a Pokemon.`];
 		}
 
+		SideMod.parseNicknameHack(set);
+
 		let species = dex.species.get(set.species);
 		set.species = species.name;
 		// Backwards compatibility with old Gmax format
@@ -582,15 +595,13 @@ export class TeamValidator {
 			if (set.name?.endsWith('-Gmax')) set.name = species.baseSpecies;
 			set.gigantamax = true;
 		}
-		if (set.name && set.name.length > 18) {
+
+		// --- CHANGED NICKNAME LIMIT TO 100 ---
+		if (set.name && set.name.length > 100) {
 			if (set.name === set.species) {
 				set.name = species.baseSpecies;
 			} else {
-				problems.push(`${set.species}'s nickname "${set.name}" is too long.`);
-				problems.push(
-					`(It's ${set.name.length} characters long, but should be 18 or less. ` +
-					`Some characters, like emojis, may count as more than one.)`
-				);
+				problems.push(...SideMod.getNicknameLengthError(set.species, set.name));
 			}
 		}
 		set.name = dex.getName(set.name);
@@ -722,6 +733,8 @@ export class TeamValidator {
 		} else {
 			delete set.teraType;
 		}
+
+		SideMod.validateCustomHPAndStatus(set, name, problems, dex);
 
 		let problem = this.checkSpecies(set, species, tierSpecies, setHas);
 		if (problem) problems.push(problem);

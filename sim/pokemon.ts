@@ -7,6 +7,7 @@
 
 import { State } from './state';
 import { toID } from './dex';
+import { SideMod } from '../side-server/sim/sim-mod';
 import type { DynamaxOptions, MoveRequestData, PokemonMoveRequestData, PokemonSwitchRequestData } from './side';
 
 /** A Pokemon's move slot. */
@@ -502,7 +503,8 @@ export class Pokemon {
 		this.baseMaxhp = 0;
 		this.hp = 0;
 		this.clearVolatile();
-		this.hp = this.maxhp;
+
+		SideMod.applyCustomHPAndStatus(this);
 	}
 
 	toJSON(): AnyObject {
@@ -1401,8 +1403,12 @@ export class Pokemon {
 		this.knownType = true;
 		this.weighthg = species.weighthg;
 
-		const stats = this.battle.spreadModify(this.species.baseStats, this.set);
+		const baseStats = SideMod.applyCustomBSTBoosts(this.species.baseStats, this.set);
+		const stats = this.battle.spreadModify(baseStats, this.set);
+
 		if (this.species.maxHP) stats.hp = this.species.maxHP;
+
+		SideMod.applyCustomHPX(stats, this.set);
 
 		if (!this.maxhp) {
 			this.baseMaxhp = stats.hp;
@@ -1502,7 +1508,8 @@ export class Pokemon {
 	}
 
 	updateMaxHp() {
-		const newBaseMaxHp = this.battle.statModify(this.species.baseStats, this.set, 'hp');
+		let newBaseMaxHp = this.battle.statModify(this.species.baseStats, this.set, 'hp');
+		newBaseMaxHp = SideMod.applyCustomHPXValue(newBaseMaxHp, this.set);
 		if (newBaseMaxHp === this.baseMaxhp) return;
 		this.baseMaxhp = newBaseMaxHp;
 		const newMaxHP = this.volatiles['dynamax'] ? (2 * this.baseMaxhp) : this.baseMaxhp;
