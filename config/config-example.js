@@ -16,6 +16,23 @@ exports.port = 8000;
 exports.bindaddress = '0.0.0.0';
 
 /**
+ * postgres - PostgreSQL connection configuration for side-server database
+ * @type {import('pg').PoolConfig | null}
+ */
+exports.postgres = null;
+
+/*
+// example:
+exports.postgres = {
+	host: '127.0.0.1',
+	port: 5432,
+	user: 'ubuntu',
+	password: '',
+	database: 'side-server',
+};
+*/
+
+/**
  * wsdeflate - compresses WebSocket messages
  *  Toggles use of the Sec-WebSocket-Extension permessage-deflate extension.
  *  This compresses messages sent and received over a WebSocket connection
@@ -490,23 +507,6 @@ exports.appealurl = '';
 exports.repl = true;
 exports.replsocketprefix = './logs/repl/';
 exports.replsocketmode = 0o600;
-
-/**
- * postgres - PostgreSQL connection configuration for side-server database
- * @type {import('pg').PoolConfig | null}
- */
-exports.postgres = null;
-
-/*
-// example:
-exports.postgres = {
-	host: '127.0.0.1',
-	port: 5432,
-	user: 'ubuntu',
-	password: '',
-	database: 'side-server',
-};
-*/
 
 /**
  * disablehotpatchall - disables `/hotpatch all`. Generally speaking, there's a

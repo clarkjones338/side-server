@@ -84,7 +84,7 @@ Diff:
 Path: config/config-example.js
 Changes:
 - Added "exports.postgres = null;" configuration block with connection example
-  for side-server PostgreSQL database.
+  for side-server PostgreSQL database directly below exports.bindaddress.
 - Added a new "Leader" group configuration (symbol: '&', id: "leader", name: "Leader")
   to exports.grouplist directly below the "Administrator" ('~') group.
 - Inherits permissions from '@' with jurisdiction 'u' and globalonly: true.
@@ -93,9 +93,14 @@ Changes:
     * Changed "promote" permission to "&u".
 
 Diff:
-@@ -498,6 +498,19 @@
-  * Main is huge), and to do pinpoint hotpatching (like /nohotpatch).
+@@ -15,6 +15,23 @@ exports.port = 8000;
   */
+ exports.bindaddress = '0.0.0.0';
+ 
++/**
++ * postgres - PostgreSQL connection configuration for side-server database
++ * @type {import('pg').PoolConfig | null}
++ */
 +exports.postgres = null;
 +
 +/*
@@ -109,8 +114,10 @@ Diff:
 +};
 +*/
 +
- exports.disablehotpatchall = false;
-@@ -626,6 +639,35 @@
+ /**
+  * wsdeflate - compresses WebSocket messages
+  *  Toggles use of the Sec-WebSocket-Extension permessage-deflate extension.
+@@ -626,6 +643,35 @@
  		exportinputlog: true,
  		tournaments: true,
  	},
