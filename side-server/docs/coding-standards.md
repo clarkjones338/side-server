@@ -296,3 +296,49 @@ Here are the required permissions you should check for each target rank group (a
 | Moderator | `@` | `this.checkCan('globalban')` |
 | Driver | `%` | `this.checkCan('lock')` |
 | Voice | `+` | `this.checkCan('show')` |
+
+---
+
+## 17. Side Server Utilities (`ss-utils.ts`)
+
+For custom Side Server formatting and UI components, import helpers from [`side-server/lib/ss-utils.ts`](file:///home/ubuntu/side-server/side-server/lib/ss-utils.ts) (via `../lib/ss-utils`):
+
+### Colored Usernames (`nameColor`)
+
+Always use `nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color:
+
+```typescript
+import { nameColor } from '../lib/ss-utils';
+
+// Standard bold colored username
+this.sendReplyBox(`Winner: ${nameColor(user.name)}`);
+
+// Unbolded colored username
+this.sendReplyBox(`Player: ${nameColor(user.name, false)}`);
+
+// With rank/group symbol (~Admin, +Voice) and bolding
+this.sendReplyBox(`Action performed by: ${nameColor(user.name, true, true)}`);
+```
+
+### Structured HTML Tables (`Table`)
+
+Use `Table(title, headerRow, dataRows)` to construct clean, dark-mode compatible HTML tables without manually handwriting table markup:
+
+```typescript
+import { Table } from '../lib/ss-utils';
+
+const htmlOutput = Table(
+	"Top Trainers",
+	["Rank", "Trainer", "Points"],
+	[
+		["#1", nameColor("Ash"), "1,500"],
+		["#2", nameColor("Red"), "1,420"],
+	]
+);
+
+this.sendReplyBox(htmlOutput);
+```
+
+Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+
+

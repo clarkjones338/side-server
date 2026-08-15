@@ -145,6 +145,8 @@ const htmlOutput = Table(
 this.sendReplyBox(htmlOutput);
 ```
 
+Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+
 ---
 
 ## 6. Developer Checklist for Clean UI Output
