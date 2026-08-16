@@ -70,9 +70,56 @@ try {
 }
 
 // Note that `import` declarations are run before any other code
-import { Repl } from '../lib';
+import { Repl, FS } from '../lib';
+import { PG } from '../side-server/lib/postgres';
 import * as ConfigLoader from './config-loader';
 import { Sockets } from './sockets';
+
+async function initializeAllDatabases() {
+	if (!Config.postgres) return;
+	try {
+		console.log('[PG] Connecting to PostgreSQL...');
+		await PG.checkConnection();
+		
+		let combinedSchema = '';
+		const pluginDirectories = [
+			{ path: 'side-server/chat-plugins', reqPrefix: '../side-server/chat-plugins' }
+		];
+
+		for (const { path, reqPrefix } of pluginDirectories) {
+			if (!FS(path).existsSync()) continue;
+			
+			const pluginFiles = await FS(path).readdir();
+			for (const folder of pluginFiles) {
+				for (const file of ['database.js', 'database.ts']) {
+					if (FS(`${path}/${folder}/${file}`).existsSync()) {
+						try {
+							const basename = file.replace(/\.(js|ts)$/, '');
+							const pluginDb = require(`${reqPrefix}/${folder}/${basename}`);
+							if (pluginDb.pgSchema) {
+								combinedSchema += `\n-- Schema for ${folder}\n` + pluginDb.pgSchema;
+							}
+						} catch (err: any) {
+							if (err.code !== 'MODULE_NOT_FOUND') throw err;
+						}
+					}
+				}
+			}
+		}
+
+		if (combinedSchema) {
+			const success = await PG.safeInit('All Plugins', combinedSchema);
+			if (!success) throw new Error('Failed to run safeInit queries.');
+		}
+		console.log('[PG] PostgreSQL connected and tables verified.');
+	} catch (err: any) {
+		console.error('\n========================================');
+		console.error('CRITICAL ERROR: Database Initialization Failed');
+		console.error(err.message);
+		console.error('========================================\n');
+		process.exit(1);
+	}
+}
 
 function cleanupStale() {
 	return Repl.cleanup();
@@ -135,6 +182,8 @@ function setupGlobals() {
 
 export const readyPromise = cleanupStale().then(() => {
 	setupGlobals();
+}).then(async () => {
+	await initializeAllDatabases();
 }).then(() => {
 	if (Config.usesqlite) {
 		require('./modlog').start(Config.subprocessescache);

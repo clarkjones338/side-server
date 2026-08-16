@@ -121,6 +121,46 @@ When building custom chat plugins for this server, always follow these architect
 - **Placement:** All custom chat plugins MUST be placed within the `side-server/chat-plugins/` directory (never directly in the upstream `server/chat-plugins/` folder).
 - **Subdirectories:** If a plugin becomes complex and requires multiple files, create a dedicated subdirectory for it inside `side-server/chat-plugins/` (e.g., `side-server/chat-plugins/my-complex-plugin/`).
 - **Database Storage:** Always use Postgres via `side-server/lib/postgres.ts` for storing persistent data. Avoid writing state to arbitrary JSON files on the disk, as Postgres provides better concurrency, scalability, and safety across hotpatches.
+  - **Schema Initialization:** Define database tables by exporting a `pgSchema` array of queries from a `database.ts` file in your plugin's subdirectory. The server automatically aggregates and initializes these tables on startup.
+
+**Bad:**
+
+```typescript
+// Manually running CREATE TABLE inside your plugin code or using JSON
+import * as fs from 'fs';
+
+export const commands: Chat.ChatCommands = {
+    async init() {
+        // Anti-pattern: The server should handle table initialization at startup
+        await PG.query(`CREATE TABLE IF NOT EXISTS my_plugin_data (...)`);
+    }
+};
+```
+
+**Good:**
+
+```typescript
+// side-server/chat-plugins/my-plugin/database.ts
+export const PLUGIN_TABLE = 'my_plugin_data';
+
+export const pgSchema = [
+    `CREATE TABLE IF NOT EXISTS ${PLUGIN_TABLE} (
+        userid VARCHAR(50) PRIMARY KEY,
+        points INT NOT NULL DEFAULT 0
+    )`
+];
+
+// side-server/chat-plugins/my-plugin/index.ts
+import { PG } from '../../../side-server/lib/postgres';
+import { PLUGIN_TABLE } from './database';
+
+// The table is guaranteed to exist when your commands run
+export const commands: Chat.ChatCommands = {
+    async addpoints(target, room, user) {
+        await PG.query(`INSERT INTO ${PLUGIN_TABLE} (userid, points) VALUES ($1, $2)`, [user.id, 10]);
+    }
+};
+```
 
 ---
 
@@ -152,137 +192,60 @@ const itemKey = toID(item);
 
 ---
 
-## 13. Chat Methods & Error Handling
+## 13. Use the Utils Module
 
-Always leverage built-in `Chat.*` methods for error handling, text formatting, and data presentation instead of implementing custom logic:
+Do not reinvent the wheel for common utility functions (like random array elements or HTML escaping). Always use the built-in Utils module provided by Pokémon Showdown.
 
-### Error Handling & Flow Control
-
-- Use `throw new Chat.ErrorMessage("Error message")` for validation failures. This immediately halts execution and displays the error message in red to the user.
-- Use `throw new Chat.Interruption()` to silently halt execution (useful when you have already sent a custom popup or view).
-
-**Bad:**
+Important: You must explicitly import Utils in every file where it is used.
 
 ```typescript
-if (!target) {
-    this.errorReply("Please specify a user.");
-    return;
-}
+import { Utils } from '../../../lib'; // Adjust relative path as necessary
 ```
 
-**Good:**
+Here are the available functions and classes in the Utils module that you should use instead of writing custom logic:
 
-```typescript
-if (!target) throw new Chat.ErrorMessage("Please specify a user.");
-```
+**String & HTML Manipulation:**
 
-### Text & List Formatting
+- `Utils.getString(str)`: Safely converts any variable to a string without crashing.
+- `Utils.escapeRegex(str)`: Escapes regex special characters in a string.
+- `Utils.escapeHTML(str)`: Escapes HTML characters.
+- `Utils.stripHTML(htmlContent)`: Strips HTML tags from a string.
+- `Utils.normalize(message)`: Normalizes a string for searching.
+- `Utils.html(strings, ...args)`: Template string tag function for automatically escaping HTML.
+- `Utils.escapeHTMLForceWrap(text)`: Escapes HTML and allows long words to wrap.
+- `Utils.forceWrap(text)`: Inserts zero-width spaces to force long words to wrap.
+- `Utils.formatOrder(place)`: Returns the ordinal string for a number (e.g., 1st, 2nd).
 
-- **Pluralization & Counting:** Use `Chat.count(amount, "coins")` (e.g. "1 coin", "5 coins") or `Chat.plural(amount)` for suffixes.
-- **Sentence Lists:** Use `Chat.toListString(array)` for "A, B, and C" or `Chat.toOrList(array)` for "A, B, or C".
-- **PS Markdown Parsing:** Use `Chat.formatText(text)` to parse bold, italics, spoilers, and greentext into HTML, or `Chat.stripFormatting(text)` to remove them.
-- **HTML Cleanup:** Use `Chat.stripHTML(html)` to remove HTML tags, or `Chat.collapseLineBreaksHTML(html)` to collapse multiline HTML for chat protocols.
-- **Folding Blocks:** Use `Chat.getReadmoreBlock(text)` or `Chat.getReadmoreCodeBlock(code)` for expandable `<details>` folds.
+**Arrays, Objects & Sorting:**
 
-### Time & Duration
+- `Utils.shuffle(arr)`: In-place array shuffle (Fisher-Yates).
+- `Utils.randomElement(arr)`: Returns a random element from an array.
+- `Utils.sortBy(array, callback?)`: Sorts an array using a smart comparator.
+- `Utils.compare(a, b)`: Smart comparator for sorting (numbers low-to-high, strings A-Z, booleans true-first).
+- `Utils.splitFirst(str, delimiter, limit)`: Splits a string a limited number of times.
+- `Utils.deepClone(obj)`: Deeply clones an object or array.
+- `Utils.deepFreeze(obj)`: Deeply freezes an object or array.
 
-- **Timestamps:** Use `Chat.toTimestamp(new Date())` for "YYYY-MM-DD HH:mm:ss" formatted strings (pass `{ human: true }` for 12-hour clock).
-- **Durations:** Use `Chat.toDurationString(ms)` to convert milliseconds into human-readable duration strings (e.g. "2 days 4 hours").
+**Numbers & Math:**
 
-### Validation & Page Updates
+- `Utils.clampIntRange(num, min, max)`: Forces a number to be an integer within a range.
+- `Utils.parseExactInt(str)`: Like parseInt, but strict.
+- `Utils.levenshtein(s, t, l)`: Calculates Levenshtein distance between two strings.
 
-- Use `Chat.validateRegex(pattern)` to validate user-supplied regular expressions and prevent crashes.
-- Use `Chat.refreshPageFor(pageid, roomid)` to automatically refresh active `/join view-*` pages for users in a room.
+**Async & Environment:**
 
-> Refer to `server/chat.ts` for complete details.
+- `Utils.waitUntil(time)`: Returns a Promise that resolves at a specific timestamp.
+- `Utils.clearRequireCache(options)`: Clears Node.js require cache.
+
+**Data Formats & Structures:**
+
+- `Utils.Multiset`: A specialized Map subclass for counting items (e.g., set.add(key) increments count).
+- `Utils.formatSQLArray(arr, args)`: Helper for formatting SQL query variables.
+- `Utils.bufFromHex(hex)`, `Utils.bufWriteHex(buf, hex)`, `Utils.bufReadHex(buf)`: Helpers for dealing with hex strings and Uint8Arrays.
 
 ---
 
-## 14. Users Methods & State
-
-Always use the global `Users` namespace to safely search for users, check account trust, and inspect connected server state:
-
-### User Lookup & Discovery
-
-- Use `Users.get(nameOrId)` to retrieve an online user by name or ID (case-insensitive, fuzzy match). Returns `User | null`.
-- Use `Users.getExact(nameOrId)` to retrieve an online user strictly by their exact ID.
-- Use `Users.isUsernameKnown(name)` to check if a username has connected recently or is recognized in cache.
-
-**Bad:**
-
-```typescript
-const targetUser = Users.users.get(target); // May miss case or identity variations
-```
-
-**Good:**
-
-```typescript
-const targetUser = Users.get(target);
-if (!targetUser) throw new Chat.ErrorMessage("User is offline.");
-```
-
-### Account Trust & Eligibility
-
-- Use `Users.isTrusted(user)` to check if a user is trusted (staff, voiced, or autoconfirmed, useful for lottery, claim, or minigame eligibility).
-
-### Server State & Metrics
-
-- Use `Users.onlineCount` to get the total number of connected users.
-- Use `Users.users` to iterate over active connected users (`Users.users.get(userid)`).
-- Use `Users.prevUsers` to check recently disconnected users (useful for reconnection grace periods).
-
-> Refer to `server/users.ts` for complete details.
-
----
-
-## 15. Utils Methods & General Helpers
-
-Unlike `Chat` and `Users`, `Utils` is NOT global and must be imported (`import { Utils } from '../../lib';`). Always leverage `Utils.*` methods for HTML safety, data structures, array operations, and math:
-
-### HTML & Security
-
-- Use `Utils.escapeHTML(str)` to sanitize raw user input and prevent XSS vulnerabilities in chat boxes.
-- Use `` Utils.html`<b>${user.name}</b>` `` as a template literal tag to automatically escape all interpolated variables.
-- Use `Utils.escapeRegex(str)` when building dynamic RegExp queries from user input.
-
-**Bad:**
-
-```typescript
-this.sendReplyBox(`<b>${user.name}</b> won the game!`); // Vulnerable to XSS
-```
-
-**Good:**
-
-```typescript
-this.sendReplyBox(Utils.html`<b>${user.name}</b> won the game!`);
-```
-
-### String & Target Parsing
-
-- Use `Utils.splitFirst(str, delimiter, limit?)` to split a string only on the first N delimiters (e.g. `Utils.splitFirst("user, arg1, arg2", ",")` -> `["user", "arg1, arg2"]`).
-- Use `Utils.getString(val)` for safe string coercion that is guaranteed never to crash on null or untrusted objects.
-- Use `Utils.forceWrap(text)` or `Utils.escapeHTMLForceWrap(text)` to insert break hints (`<wbr />`) for long unbroken strings inside tables.
-
-### Array & Data Manipulation
-
-- Use `Utils.sortBy(array, callback)` to sort numbers, strings, or objects reliably (regular `Array.prototype.sort` converts numbers to strings).
-- Use `Utils.randomElement(array)` to pick a random item from an array.
-- Use `Utils.shuffle(array)` to perform an in-place Fisher-Yates shuffle.
-- Use `Utils.deepClone(obj)` to create safe, decoupled copies of nested objects/arrays.
-- Use `Utils.Multiset` for managing counted item inventories, tallies, or token pools.
-
-### Math & Parsing
-
-- Use `Utils.parseExactInt(str)` for strict integer validation that rejects non-numeric characters (returns `NaN` for `"123abc"`).
-- Use `Utils.clampIntRange(num, min?, max?)` to clamp and floor numbers within boundaries.
-- Use `Utils.formatOrder(place)` to convert numbers to ordinals (e.g. 1 -> "1st", 2 -> "2nd", 3 -> "3rd").
-- Use `Utils.levenshtein(str1, str2)` for fast edit distance calculations to provide typo suggestions and fuzzy searching in shops/commands.
-
-> Refer to `lib/utils.ts` for complete details.
-
----
-
-## 16. Command Permissions
+## 14. Command Permissions
 
 Never assume a command is safe just because it is hidden. Always explicitly check a user's permissions at the very top of sensitive commands using `this.checkCan('permission')` (e.g., `this.checkCan('lock')`) before executing any logic.
 
@@ -299,13 +262,81 @@ Here are the required permissions you should check for each target rank group (a
 
 ---
 
-## 17. Side Server Utilities (`ss-utils.ts`)
+## 15. Preferences
 
-For custom Side Server formatting and UI components, import helpers from [`side-server/lib/ss-utils.ts`](file:///home/ubuntu/side-server/side-server/lib/ss-utils.ts) (via `../lib/ss-utils`):
+**1.** Prefer using `throw new Chat.ErrorMessage` instead of legacy `this.errorReply()` for chat error handling.
 
-### Colored Usernames (`nameColor`)
+**Bad:**
 
-Always use `nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color:
+```typescript
+if (!targetUser) {
+    return this.errorReply("User not found.");
+}
+```
+
+**Good:**
+
+```typescript
+if (!targetUser) {
+    throw new Chat.ErrorMessage("User not found.");
+}
+```
+
+---
+
+**2.** Prefer using `this.sendReply` with `|html|` instead of `this.sendReplyBox` unless you specifically want the box border that `this.sendReplyBox` provides.
+
+**Bad:**
+
+```typescript
+this.sendReplyBox(`<b>Welcome to the server!</b>`);
+```
+
+**Good:**
+
+```typescript
+this.sendReply(`|html|<b>Welcome to the server!</b>`);
+```
+
+---
+
+**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { Table } from '../side-server/lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+
+**Bad:**
+
+```typescript
+let html = `<table><tr><th>Rank</th><th>Trainer</th></tr>`;
+html += `<tr><td>#1</td><td>Ash</td></tr></table>`;
+this.sendReply(`|html|${html}`);
+```
+
+**Good:**
+
+```typescript
+import { Table } from '../side-server/lib/ss-utils';
+
+const htmlOutput = Table(
+    "Top Trainers",
+    ["Rank", "Trainer"],
+    [
+        ["#1", "Ash"],
+    ]
+);
+this.sendReply(`|html|${htmlOutput}`);
+```
+
+---
+
+**4.** Prefer using `nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color.
+
+**Bad:**
+
+```typescript
+// Potential XSS vulnerability and manual HTML styling
+this.sendReplyBox(`Winner: <b><font color="red">${user.name}</font></b>`);
+```
+
+**Good:**
 
 ```typescript
 import { nameColor } from '../lib/ss-utils';
@@ -319,26 +350,4 @@ this.sendReplyBox(`Player: ${nameColor(user.name, false)}`);
 // With rank/group symbol (~Admin, +Voice) and bolding
 this.sendReplyBox(`Action performed by: ${nameColor(user.name, true, true)}`);
 ```
-
-### Structured HTML Tables (`Table`)
-
-Use `Table(title, headerRow, dataRows)` to construct clean, dark-mode compatible HTML tables without manually handwriting table markup:
-
-```typescript
-import { Table } from '../lib/ss-utils';
-
-const htmlOutput = Table(
-	"Top Trainers",
-	["Rank", "Trainer", "Points"],
-	[
-		["#1", nameColor("Ash"), "1,500"],
-		["#2", nameColor("Red"), "1,420"],
-	]
-);
-
-this.sendReplyBox(htmlOutput);
-```
-
-Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
-
 

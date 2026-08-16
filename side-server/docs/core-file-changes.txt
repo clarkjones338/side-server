@@ -83,8 +83,9 @@ Diff:
 --------------------------------------------------------------------------------
 Path: config/config-example.js
 Changes:
-- Added "exports.postgres = null;" configuration block with connection example
-  for side-server PostgreSQL database directly below exports.bindaddress.
+- Expanded "exports.postgres = null;" configuration block with comprehensive connection example
+  for side-server PostgreSQL database (including pool settings, SSL, and connection string URL)
+  directly below exports.bindaddress.
 - Added a new "Leader" group configuration (symbol: '&', id: "leader", name: "Leader")
   to exports.grouplist directly below the "Administrator" ('~') group.
 - Inherits permissions from '@' with jurisdiction 'u' and globalonly: true.
@@ -458,5 +459,16 @@ Diff:
 +
  		let problem = this.checkSpecies(set, species, tierSpecies, setHas);
  		if (problem) problems.push(problem);
+--------------------------------------------------------------------------------
+9. server/index.ts
+--------------------------------------------------------------------------------
+Path: server/index.ts
+Changes:
+- Added `initializeAllDatabases` function to automatically scan `side-server/chat-plugins`
+  for `database.ts` or `database.js` files, aggregating their exported `pgSchema`.
+- Hooked this function into `readyPromise` to ensure the server blocks startup until
+  PostgreSQL connects and all custom plugin tables are initialized.
+- Handles halting the server (`process.exit(1)`) with a CRITICAL ERROR log if any
+  database connection or SQL schema error occurs.
 
 ================================================================================

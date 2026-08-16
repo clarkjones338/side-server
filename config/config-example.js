@@ -22,14 +22,25 @@ exports.bindaddress = '0.0.0.0';
 exports.postgres = null;
 
 /*
-// example:
+// example using individual parameters:
 exports.postgres = {
 	host: '127.0.0.1',
 	port: 5432,
 	user: 'ubuntu',
 	password: '',
 	database: 'side-server',
+	
+	// Connection Pool Settings
+	max: 20, // Max concurrent connections
+	idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+	connectionTimeoutMillis: 2000, // Timeout if connection takes longer than 2 seconds
+	
+	// Set to true if your database requires an SSL connection (e.g. AWS, Supabase, Neon)
+	// ssl: { rejectUnauthorized: false }
 };
+
+// OR example using a connection string (URL):
+// exports.postgres = "postgres://user:password@hostname:5432/database_name";
 */
 
 /**
