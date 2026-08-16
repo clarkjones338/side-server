@@ -1,0 +1,291 @@
+/**
+ * Emoticons Chat Plugin for Side Server
+ * Parses custom image emoticons in chat messages with room toggle and personal ignore settings.
+ */
+
+import { Utils } from '../../../lib';
+import { PG } from '../../lib/postgres';
+import { Table, nameColor } from '../../lib/ss-utils';
+import { EMOTICONS_TABLE } from './database';
+
+const CONFIG = {
+	MIN_SIZE: 16,
+	MAX_SIZE: 256,
+	DEFAULT_SIZE: 32,
+	MAX_NAME_LENGTH: 20,
+	VALID_URL: /^https:\/\/[^\s"'<>]+\.(?:png|gif|jpg|jpeg|webp)(?:\?[^\s"'<>]*)?$/i,
+	VALID_NAME: /^[\w:)(|-]{1,20}$/,
+};
+
+declare module '../../../server/rooms' {
+	interface RoomSettings {
+		disableEmoticons?: boolean;
+	}
+}
+
+export interface EmoticonEntry {
+	readonly name: string;
+	readonly url: string;
+	readonly addedBy: string;
+	readonly addedAt: number;
+}
+
+export interface EmoticonRow {
+	name: string;
+	url: string;
+	added_by: string;
+	added_at: number | bigint | string;
+}
+
+const getEmoteTable = () => PG.getTable<EmoticonRow>(EMOTICONS_TABLE, 'name');
+
+let emoteCache: Record<string, EmoticonEntry> = {};
+const ignoreCache = new Set<string>();
+let currentEmoteSize = CONFIG.DEFAULT_SIZE;
+
+let emoteRegex = /^$/ig;
+
+function buildRegex() {
+	const keys = Object.values(emoteCache).map(e => e.name);
+	emoteRegex = keys.length > 0 ?
+		new RegExp(`(${keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig') :
+		/^$/ig;
+}
+
+export const EmoteManager = {
+	async init() {
+		try {
+			const rows = await getEmoteTable().select();
+			emoteCache = {};
+			ignoreCache.clear();
+			currentEmoteSize = CONFIG.DEFAULT_SIZE;
+
+			for (const row of rows) {
+				if (row.name.startsWith('IGNORE:')) {
+					const userid = row.name.slice(7);
+					ignoreCache.add(userid);
+				} else if (row.name === 'SETTING:size') {
+					const size = Number(row.url);
+					if (!isNaN(size) && size >= CONFIG.MIN_SIZE && size <= CONFIG.MAX_SIZE) {
+						currentEmoteSize = size;
+					}
+				} else {
+					emoteCache[row.name.toLowerCase()] = {
+						name: row.name,
+						url: row.url,
+						addedBy: row.added_by,
+						addedAt: Number(row.added_at),
+					};
+				}
+			}
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : String(err);
+			Monitor.warn(`[Emoticons] Failed to load emoticons data: ${message}`);
+		}
+
+		buildRegex();
+	},
+
+	async addEmote(name: string, url: string, addedBy: string) {
+		const addedAt = Date.now();
+		emoteCache[name.toLowerCase()] = { name, url, addedBy, addedAt };
+		buildRegex();
+
+		await getEmoteTable().upsert({
+			name,
+			url,
+			added_by: addedBy,
+			added_at: addedAt,
+		}, ['name']);
+	},
+
+	async removeEmote(name: string) {
+		delete emoteCache[name.toLowerCase()];
+		buildRegex();
+
+		await getEmoteTable().deleteById(name);
+	},
+
+	async setSize(size: number) {
+		currentEmoteSize = size;
+		await getEmoteTable().upsert({
+			name: 'SETTING:size',
+			url: String(size),
+			added_by: 'system',
+			added_at: Date.now(),
+		}, ['name']);
+	},
+
+	async setIgnore(userid: string, ignore: boolean) {
+		if (ignore) {
+			ignoreCache.add(userid);
+			await getEmoteTable().upsert({
+				name: `IGNORE:${userid}`,
+				url: 'ignore',
+				added_by: userid,
+				added_at: Date.now(),
+			}, ['name']);
+		} else {
+			ignoreCache.delete(userid);
+			await getEmoteTable().deleteById(`IGNORE:${userid}`);
+		}
+	},
+
+	parseMarkdown(raw: string): string {
+		return Chat.formatText(raw, true);
+	},
+
+	parseEmotes(message: string): string | false {
+		emoteRegex.lastIndex = 0;
+		if (!emoteRegex.test(message)) return false;
+
+		const size = currentEmoteSize;
+		const parsed = this.parseMarkdown(message).replace(emoteRegex, match => {
+			const entry = emoteCache[match.toLowerCase()];
+			if (!entry) return Utils.escapeHTML(match);
+			return `<img src="${Utils.escapeHTML(entry.url)}" title="${Utils.escapeHTML(match)}" ` +
+				`height="${size}" width="${size}" loading="lazy">`;
+		});
+
+		return parsed;
+	},
+};
+
+void EmoteManager.init().catch(err => {
+	const message = err instanceof Error ? err.message : String(err);
+	Monitor.warn(`Emoticons PG init failed: ${message}`);
+});
+
+export const parseMessage = (msg: string) =>
+	msg.startsWith('/html') ? msg.slice(5).replace(/&#x2f;/g, '/') : EmoteManager.parseMarkdown(msg);
+
+export const chatfilter: Chat.ChatFilter = (message, user, room) => {
+	if (room?.settings.disableEmoticons || ignoreCache.has(user.id)) return message;
+	const parsed = EmoteManager.parseEmotes(message);
+	return parsed ? `/html ${parsed}` : message;
+};
+
+export const commands: Chat.ChatCommands = {
+	emote: 'emoticon',
+	emotes: 'emoticon',
+	emoticons: 'emoticon',
+	emoticon: {
+		async add(target, room, user) {
+			this.checkCan('bypassall');
+			const [name, url] = target.split(',').map(s => s.trim());
+			if (!name || !url) return this.parse('/emote help');
+
+			if (!CONFIG.VALID_NAME.test(name)) {
+				throw new Chat.ErrorMessage(
+					`Emoticon names must be 1-${CONFIG.MAX_NAME_LENGTH} characters long and can only ` +
+					`contain letters, numbers, and the characters : _ - | ( ).`
+				);
+			}
+			if (!CONFIG.VALID_URL.test(url)) {
+				throw new Chat.ErrorMessage(
+					"The provided image URL is invalid. It must be an HTTPS link to a PNG, GIF, JPG, or WEBP file."
+				);
+			}
+			if (emoteCache[name.toLowerCase()]) {
+				throw new Chat.ErrorMessage(`The emoticon "${emoteCache[name.toLowerCase()].name}" already exists.`);
+			}
+
+			await EmoteManager.addEmote(name, url, user.id);
+
+			this.sendReply(`|raw|The emoticon <b>${Utils.escapeHTML(name)}</b> has been added.`);
+		},
+
+		async delete(target, room, user) {
+			this.checkCan('bypassall');
+			const name = target.trim();
+			const emote = emoteCache[name.toLowerCase()];
+			if (!emote) throw new Chat.ErrorMessage("The specified emoticon could not be found.");
+
+			await EmoteManager.removeEmote(emote.name);
+
+			this.sendReply(`The emoticon "${emote.name}" has been deleted.`);
+		},
+
+		async size(target, room, user) {
+			this.checkCan('bypassall');
+			const size = Utils.parseExactInt(target);
+			if (isNaN(size) || size < CONFIG.MIN_SIZE || size > CONFIG.MAX_SIZE) {
+				throw new Chat.ErrorMessage(`The size must be between ${CONFIG.MIN_SIZE} and ${CONFIG.MAX_SIZE}.`);
+			}
+			await EmoteManager.setSize(size);
+
+			this.sendReply(`The emoticon size has been set to ${size}px.`);
+		},
+
+		async ignore(target, room, user) {
+			if (ignoreCache.has(user.id)) throw new Chat.ErrorMessage("You are already ignoring emoticons.");
+			await EmoteManager.setIgnore(user.id, true);
+			this.sendReply("You are now ignoring emoticons.");
+		},
+
+		async unignore(target, room, user) {
+			if (!ignoreCache.has(user.id)) throw new Chat.ErrorMessage("You are not currently ignoring emoticons.");
+			await EmoteManager.setIgnore(user.id, false);
+			this.sendReply("You are no longer ignoring emoticons.");
+		},
+
+		toggle(target, room, user) {
+			const curRoom = this.requireRoom();
+			this.checkCan('roommod', null, curRoom);
+			curRoom.settings.disableEmoticons = !curRoom.settings.disableEmoticons;
+			this.privateModAction(
+				`(${user.name} ${curRoom.settings.disableEmoticons ? "disabled" : "enabled"} emoticons in this room.)`
+			);
+			if (curRoom.persist) Rooms.global.writeChatRoomData();
+		},
+
+		info(target) {
+			if (!this.runBroadcast()) return;
+			const name = target.trim();
+			const emote = emoteCache[name.toLowerCase()];
+			if (!emote) throw new Chat.ErrorMessage("Emoticon not found.");
+
+			this.sendReplyBox(
+				`<strong>Emoticon Info: ${Utils.escapeHTML(emote.name)}</strong><br />` +
+				`<img src="${Utils.escapeHTML(emote.url)}" width="40" height="40"><br />` +
+				`URL: ${Utils.escapeHTML(emote.url)}<br />` +
+				`Added by: ${nameColor(emote.addedBy, true)}`
+			);
+		},
+
+		''(target, room, user): void {
+			if (!this.runBroadcast()) return;
+
+			const emoteKeys = Object.keys(emoteCache);
+			if (emoteKeys.length === 0) return this.sendReplyBox("There are no emoticons available.");
+
+			const rows: string[][] = [];
+			for (let i = 0; i < emoteKeys.length; i += 5) {
+				const row: string[] = [];
+				for (let j = i; j < i + 5 && j < emoteKeys.length; j++) {
+					const emote = emoteCache[emoteKeys[j]];
+					const name = emote.name;
+					row.push(
+						`<center><img src="${Utils.escapeHTML(emote.url)}" width="32" height="32" ` +
+						`title="${Utils.escapeHTML(name)}"><br /><code>${Utils.escapeHTML(name)}</code></center>`
+					);
+				}
+				rows.push(row);
+			}
+
+			this.sendReply(`|html|${Table("Available Emoticons", [], rows)}`);
+		},
+
+		help() {
+			this.runBroadcast();
+			this.sendReplyBox(
+				`<center><b>Emoticon Commands</b></center><hr>` +
+				`<b>/emote add [name], [url]</b>: Add an emote. (&, ~)<hr>` +
+				`<b>/emote delete [name]</b>: Remove an emote. (&, ~)<hr>` +
+				`<b>/emote size [px]</b>: Set display size. (&, ~)<hr>` +
+				`<b>/emote toggle</b>: Enable/disable in room. (%, @, #, &, ~)<hr>` +
+				`<b>/emote ignore/unignore</b>: Toggle your personal view.`
+			);
+		},
+	},
+};
