@@ -151,7 +151,7 @@ export const pgSchema = [
 ];
 
 // side-server/chat-plugins/my-plugin/index.ts
-import { PG } from '../../../side-server/lib/postgres';
+import { PG } from '../../lib/postgres';
 import { PLUGIN_TABLE } from './database';
 
 // The table is guaranteed to exist when your commands run
@@ -196,7 +196,7 @@ const itemKey = toID(item);
 
 Do not reinvent the wheel for common utility functions (like random array elements or HTML escaping). Always use the built-in Utils module provided by Pokémon Showdown.
 
-Important: You must explicitly import Utils in every file where it is used.
+**Important:** You must explicitly import `Utils` in every file where it is used.
 
 ```typescript
 import { Utils } from '../../../lib'; // Adjust relative path as necessary
@@ -300,7 +300,7 @@ this.sendReply(`|html|<b>Welcome to the server!</b>`);
 
 ---
 
-**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { Table } from '../side-server/lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { Table } from '../../lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
 
 **Bad:**
 
@@ -313,7 +313,7 @@ this.sendReply(`|html|${html}`);
 **Good:**
 
 ```typescript
-import { Table } from '../side-server/lib/ss-utils';
+import { Table } from '../../lib/ss-utils';
 
 const htmlOutput = Table(
     "Top Trainers",
@@ -339,7 +339,7 @@ this.sendReplyBox(`Winner: <b><font color="red">${user.name}</font></b>`);
 **Good:**
 
 ```typescript
-import { nameColor } from '../lib/ss-utils';
+import { nameColor } from '../../lib/ss-utils';
 
 // Standard bold colored username
 this.sendReplyBox(`Winner: ${nameColor(user.name)}`);
@@ -349,5 +349,34 @@ this.sendReplyBox(`Player: ${nameColor(user.name, false)}`);
 
 // With rank/group symbol (~Admin, +Voice) and bolding
 this.sendReplyBox(`Action performed by: ${nameColor(user.name, true, true)}`);
+```
+
+---
+
+**5.** Structure command `help` handlers using `this.runBroadcast()` and a styled `this.sendReplyBox` that displays centered bold titles, horizontal divider rules (`<hr>`), subcommands, parameter formats, and required rank permissions.
+
+**Bad:**
+
+```typescript
+help() {
+    this.sendReply("/at enable - Enable autotours");
+    this.sendReply("/at disable - Disable autotours");
+}
+```
+
+**Good:**
+
+```typescript
+help() {
+    this.runBroadcast();
+    this.sendReplyBox(
+        `<center><b>Autotour Commands</b></center><hr>` +
+        `<b>/at enable/disable</b>: Toggle autotours. (#, &, ~)<hr>` +
+        `<b>/at formats [f1], [f2]</b>: Set format rotation. (#, &, ~)<hr>` +
+        `<b>/at interval [min]</b>: Set time between tours. (#, &, ~)<hr>` +
+        `<b>/at show</b>: View current config. (#, &, ~)<hr>` +
+        `<b>/at next</b>: Time until next tour.`
+    );
+}
 ```
 

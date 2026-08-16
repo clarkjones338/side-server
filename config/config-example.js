@@ -17,17 +17,24 @@ exports.bindaddress = '0.0.0.0';
 
 /**
  * postgres - PostgreSQL connection configuration for side-server database
- * @type {import('pg').PoolConfig | null}
+ * @type {import('pg').PoolConfig | string | null}
  */
 exports.postgres = null;
 
 /*
-// example using individual parameters:
+// Example 1: Local UNIX Socket (Recommended for local Linux/Ubuntu peer auth, no password required):
+exports.postgres = {
+	host: '/var/run/postgresql',
+	user: 'ubuntu',
+	database: 'side-server',
+};
+
+// Example 2: TCP connection (Local or remote PostgreSQL server):
 exports.postgres = {
 	host: '127.0.0.1',
 	port: 5432,
 	user: 'ubuntu',
-	password: '',
+	password: 'your_password',
 	database: 'side-server',
 	
 	// Connection Pool Settings
@@ -35,11 +42,11 @@ exports.postgres = {
 	idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
 	connectionTimeoutMillis: 2000, // Timeout if connection takes longer than 2 seconds
 	
-	// Set to true if your database requires an SSL connection (e.g. AWS, Supabase, Neon)
+	// Set to true if your database requires SSL (e.g. AWS RDS, Supabase, Neon)
 	// ssl: { rejectUnauthorized: false }
 };
 
-// OR example using a connection string (URL):
+// Example 3: Connection string URL:
 // exports.postgres = "postgres://user:password@hostname:5432/database_name";
 */
 

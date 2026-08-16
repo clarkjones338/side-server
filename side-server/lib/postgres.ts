@@ -1215,10 +1215,22 @@ export class PGTable<T extends Record<string, any>> {
 }
 
 export class PGDatabaseManager {
-	readonly pool: Pool;
+	private _pool: Pool | null = null;
 	private readonly tables = new Map<string, PGTable<Record<string, any>>>();
+	private readonly options?: PGOptions;
 
 	constructor(options?: PGOptions) {
+		this.options = options;
+	}
+
+	get pool(): Pool {
+		if (!this._pool) {
+			this._pool = this.createPool(this.options);
+		}
+		return this._pool;
+	}
+
+	private createPool(options?: PGOptions): Pool {
 		const configHost = process.env.PGHOST ||
 			(global as any).Config?.postgres?.host || (global as any).Config?.pghost;
 		const configUser = process.env.PGUSER ||
@@ -1246,7 +1258,7 @@ export class PGDatabaseManager {
 							password: configPassword ?? undefined,
 						};
 
-		this.pool = new Pool({
+		const pool = new Pool({
 			max: 20,
 			idleTimeoutMillis: 30_000,
 			connectionTimeoutMillis: 2_000,
@@ -1254,9 +1266,11 @@ export class PGDatabaseManager {
 			...options,
 		});
 
-		this.pool.on('error', (err: Error) => {
+		pool.on('error', (err: Error) => {
 			console.error('[PGDatabaseManager] Unexpected error on idle client:', err.message);
 		});
+
+		return pool;
 	}
 
 	async checkConnection(): Promise<boolean> {
@@ -1349,7 +1363,10 @@ export class PGDatabaseManager {
 	}
 
 	async destroy(): Promise<void> {
-		await this.pool.end();
+		if (this._pool) {
+			await this._pool.end();
+			this._pool = null;
+		}
 	}
 }
 

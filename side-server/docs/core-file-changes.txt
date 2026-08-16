@@ -3,7 +3,7 @@ CORE FILE CHANGES LOG
 ================================================================================
 
 Initial Created: 2026-08-15 03:10:49 UTC
-Last Updated:    2026-08-15 10:45:00 UTC
+Last Updated:    2026-08-16 07:05:00 UTC
 Author:          clarkjones338 <clarkjones338@gmail.com>
 
 The following core files outside the side-server directory were modified:
@@ -94,23 +94,30 @@ Changes:
     * Changed "promote" permission to "&u".
 
 Diff:
-@@ -15,6 +15,23 @@ exports.port = 8000;
+@@ -15,6 +15,30 @@ exports.port = 8000;
   */
  exports.bindaddress = '0.0.0.0';
  
 +/**
 + * postgres - PostgreSQL connection configuration for side-server database
-+ * @type {import('pg').PoolConfig | null}
++ * @type {import('pg').PoolConfig | string | null}
 + */
 +exports.postgres = null;
 +
 +/*
-+// example:
++// Example 1: Local UNIX Socket (Recommended for local Linux/Ubuntu peer auth, no password required):
++exports.postgres = {
++	host: '/var/run/postgresql',
++	user: 'ubuntu',
++	database: 'side-server',
++};
++
++// Example 2: TCP connection (Local or remote PostgreSQL server):
 +exports.postgres = {
 +	host: '127.0.0.1',
 +	port: 5432,
 +	user: 'ubuntu',
-+	password: '',
++	password: 'your_password',
 +	database: 'side-server',
 +};
 +*/
