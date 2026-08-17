@@ -88,6 +88,15 @@ Avoid using the `any` type. If a type is truly unknown, use `unknown` and perfor
 
 `Chat`, `Users`, `Rooms`, `Dex`, `toID`, `Config`, `Monitor`, and `Teams` are declared as global in `server/index.ts` and don't need to be imported.
 
+### Server Configuration (`Config`)
+
+Side-server specific configuration options are defined in `config/config-example.js` (and loaded into global `Config`):
+
+- **`Config.serverid`**: The registered side-server identifier (normalized ID, defaults to `'sideserver'`). Used when communicating with central login services and invalidating custom CSS (`SSUtils.reloadCSS()`).
+- **`Config.servertoken`**: Authentication token for central Pokémon Showdown login server requests.
+- **`Config.serverName`**: The display name of the server (defaults to `'Side Server'`).
+- **`Config.postgres`**: PostgreSQL connection options for side-server database plugins.
+
 ---
 
 ## 8. Non-Blocking I/O (Crucial for Plugins)
@@ -300,7 +309,7 @@ this.sendReply(`|html|<b>Welcome to the server!</b>`);
 
 ---
 
-**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { Table } from '../../lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { SSUtils } from '../../lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
 
 **Bad:**
 
@@ -313,9 +322,9 @@ this.sendReply(`|html|${html}`);
 **Good:**
 
 ```typescript
-import { Table } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 
-const htmlOutput = Table(
+const htmlOutput = SSUtils.Table(
     "Top Trainers",
     ["Rank", "Trainer"],
     [
@@ -327,7 +336,7 @@ this.sendReply(`|html|${htmlOutput}`);
 
 ---
 
-**4.** Prefer using `nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color.
+**4.** Prefer using `SSUtils.nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color.
 
 **Bad:**
 
@@ -339,16 +348,16 @@ this.sendReplyBox(`Winner: <b><font color="red">${user.name}</font></b>`);
 **Good:**
 
 ```typescript
-import { nameColor } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 
 // Standard bold colored username
-this.sendReplyBox(`Winner: ${nameColor(user.name)}`);
+this.sendReplyBox(`Winner: ${SSUtils.nameColor(user.name)}`);
 
 // Unbolded colored username
-this.sendReplyBox(`Player: ${nameColor(user.name, false)}`);
+this.sendReplyBox(`Player: ${SSUtils.nameColor(user.name, false)}`);
 
 // With rank/group symbol (~Admin, +Voice) and bolding
-this.sendReplyBox(`Action performed by: ${nameColor(user.name, true, true)}`);
+this.sendReplyBox(`Action performed by: ${SSUtils.nameColor(user.name, true, true)}`);
 ```
 
 ---
@@ -378,5 +387,16 @@ help() {
         `<b>/at next</b>: Time until next tour.`
     );
 }
+```
+
+---
+
+**6.** Use `SSUtils.reloadCSS()` to invalidate and refresh custom server CSS on the central Pokémon Showdown server. It defaults to using `Config.serverid` (with a `'sideserver'` fallback), or accepts an explicit server ID override.
+
+```typescript
+import { SSUtils } from '../../lib/ss-utils';
+
+// Pings central server using Config.serverid
+await SSUtils.reloadCSS();
 ```
 

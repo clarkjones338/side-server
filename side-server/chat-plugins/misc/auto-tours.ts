@@ -5,7 +5,7 @@
 
 import { Utils } from '../../../lib';
 import { PG } from '../../lib/postgres';
-import { Table } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 import { AUTO_TOURS_TABLE } from './database';
 
 export interface AutoTour {
@@ -236,7 +236,8 @@ export const commands: Chat.ChatCommands = {
 				["<b>Interval:</b>", `${config.interval} min`],
 				["<b>Auto-Start/DQ:</b>", `${config.autostart}m / ${config.autodq}m`],
 			];
-			const html = Table(`Autotour: ${Utils.escapeHTML(curRoom.title || curRoom.roomid)}`, ["Setting", "Value"], dataRows);
+			const title = `Autotour: ${Utils.escapeHTML(curRoom.title || curRoom.roomid)}`;
+			const html = SSUtils.Table(title, ["Setting", "Value"], dataRows);
 			this.sendReply(`|html|${html}`);
 		},
 

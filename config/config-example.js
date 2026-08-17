@@ -16,6 +16,27 @@ exports.port = 8000;
 exports.bindaddress = '0.0.0.0';
 
 /**
+ * The server ID - the unique registered ID of your Pokémon Showdown side server
+ *
+ * @type {string}
+ */
+exports.serverid = 'sideserver';
+
+/**
+ * The server token - authentication token for communicating with the central Pokémon Showdown login server
+ *
+ * @type {string}
+ */
+exports.servertoken = '';
+
+/**
+ * The display name of the server
+ *
+ * @type {string}
+ */
+exports.serverName = 'Side Server';
+
+/**
  * postgres - PostgreSQL connection configuration for side-server database
  * @type {import('pg').PoolConfig | string | null}
  */

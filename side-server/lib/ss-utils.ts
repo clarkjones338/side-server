@@ -6,6 +6,11 @@ const colorCache: Record<string, string> = {};
 
 /**
  * Generates an HTML string for a username styled with their color and optional rank symbol / bolding.
+ *
+ * Usage:
+ * - Call `nameColor(name)` to generate a bold, custom/hashed colored username.
+ * - Call `nameColor(name, false)` to generate an unbolded colored username.
+ * - Call `nameColor(name, true, true)` to include the user's global auth symbol with bolding.
  */
 export const nameColor = (name: string, bold = true, userGroup = false): string => {
 	const userId = toID(name);
@@ -54,6 +59,10 @@ export const nameColor = (name: string, bold = true, userGroup = false): string 
 
 /**
  * Generates responsive, dark-mode compatible HTML table markup.
+ *
+ * Usage:
+ * - Call `Table(title, headerRow, dataRows)` where `title` is the table title,
+ *   `headerRow` is an array of column names, and `dataRows` is a 2D array of cell values.
  */
 export const Table = (title: string, headerRow: string[], dataRows: string[][]): string => {
 	let output = `<div class="ss-table-container">`;
@@ -70,3 +79,41 @@ export const Table = (title: string, headerRow: string[], dataRows: string[][]):
 	output += `</table></div>`;
 	return output;
 };
+
+/**
+ * Pings the central Pokémon Showdown server to invalidate and refresh the custom CSS cache.
+ * Note: Only registered Pokémon Showdown side servers can have custom CSS.
+ *
+ * Usage:
+ * - Call `reloadCSS()` to automatically use `Config.serverid` (falls back to 'sideserver').
+ * - Call `reloadCSS('yourserverid')` to manually override and reload CSS for a specific server name.
+ */
+export const reloadCSS = async (serverId: string = Config.serverid || 'sideserver'): Promise<void> => {
+	const url = `https://play.pokemonshowdown.com/customcss.php?server=${serverId}&invalidate`;
+
+	try {
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			Monitor.warn(`Failed to reload custom CSS. Central server responded with status: ${response.status}`);
+			return;
+		}
+
+		const responseText = await response.text();
+
+		if (!responseText.includes('Done:')) {
+			Monitor.warn(`Failed to reload custom CSS. Unexpected response: ${responseText}`);
+		}
+	} catch (err: any) {
+		Monitor.warn(`Failed to fetch custom CSS invalidation from central server: ${err.message}`);
+	}
+};
+
+export const SSUtils = {
+	nameColor,
+	Table,
+	reloadCSS,
+	customColors,
+};
+
+export default SSUtils;

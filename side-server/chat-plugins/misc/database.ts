@@ -2,6 +2,7 @@ export const AUTO_TOURS_TABLE = 'auto_tours';
 export const SEEN_USERS_TABLE = 'seen_users';
 export const ONTIME_TABLE = 'ontime';
 export const EMOTICONS_TABLE = 'emoticons';
+export const NEWS_TABLE = 'news';
 
 export const pgSchema = `
 CREATE TABLE IF NOT EXISTS auto_tours (
@@ -34,5 +35,14 @@ CREATE TABLE IF NOT EXISTS emoticons (
 	url TEXT NOT NULL,
 	added_by TEXT NOT NULL,
 	added_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS news (
+	id TEXT PRIMARY KEY,
+	title TEXT NOT NULL,
+	description TEXT NOT NULL,
+	posted_by TEXT NOT NULL,
+	post_time TEXT NOT NULL,
+	timestamp BIGINT NOT NULL
 );
 `.trim();

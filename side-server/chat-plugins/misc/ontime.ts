@@ -4,7 +4,7 @@
  */
 
 import { PG } from '../../lib/postgres';
-import { Table, nameColor } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 import { ONTIME_TABLE } from './database';
 
 const MAX_USERID_LENGTH = 18;
@@ -132,21 +132,21 @@ export const commands: Chat.ChatCommands = {
 
 			const targetUser = Users.get(targetId);
 			if (targetUser?.isPublicBot) {
-				return this.sendReplyBox(`${nameColor(targetId, true)} is a bot and is not tracked.`);
+				return this.sendReplyBox(`${SSUtils.nameColor(targetId, true)} is a bot and is not tracked.`);
 			}
 
 			const entry = ontimeData[targetId];
 			if (entry?.isBlocked) {
-				return this.sendReplyBox(`${nameColor(targetId, true)} is blocked from tracking ontime.`);
+				return this.sendReplyBox(`${SSUtils.nameColor(targetId, true)} is blocked from tracking ontime.`);
 			}
 
 			const savedTime = entry?.totalTime || 0;
 			const sessionTime = OntimeManager.getSessionTime(targetUser);
 			const total = savedTime + sessionTime;
 
-			if (!total) return this.sendReplyBox(`${nameColor(targetId, true)} has no recorded ontime.`);
+			if (!total) return this.sendReplyBox(`${SSUtils.nameColor(targetId, true)} has no recorded ontime.`);
 
-			let output = `${nameColor(targetId, true)}'s total ontime is <b>${OntimeManager.displayTime(total)}</b>.`;
+			let output = `${SSUtils.nameColor(targetId, true)}'s total ontime is <b>${OntimeManager.displayTime(total)}</b>.`;
 			if (sessionTime > 0) {
 				output += `<br /><small>Current session: ${OntimeManager.displayTime(sessionTime)}</small>`;
 			}
@@ -170,11 +170,11 @@ export const commands: Chat.ChatCommands = {
 
 			const dataRows = leaderboard.map((entry, i) => [
 				`${i + 1}`,
-				nameColor(entry.id, true),
+				SSUtils.nameColor(entry.id, true),
 				OntimeManager.displayTime(entry.total),
 			]);
 
-			const html = Table("Ontime Leaderboard", ["Rank", "User", "Time"], dataRows);
+			const html = SSUtils.Table("Ontime Leaderboard", ["Rank", "User", "Time"], dataRows);
 			this.sendReply(`|html|${html}`);
 		},
 

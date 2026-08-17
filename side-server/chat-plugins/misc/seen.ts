@@ -5,7 +5,7 @@
 
 import { Utils } from '../../../lib';
 import { PG } from '../../lib/postgres';
-import { Table, nameColor } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 import { SEEN_USERS_TABLE } from './database';
 
 export interface SeenUser {
@@ -109,7 +109,7 @@ export const SeenManager = {
 	},
 
 	format(name: string, date: number | null): string {
-		const coloredName = nameColor(name, true, true);
+		const coloredName = SSUtils.nameColor(name, true, true);
 		const user = Users.get(name);
 
 		if (user?.connected) {
@@ -163,10 +163,10 @@ export const commands: Chat.ChatCommands = {
 				const status = u?.connected ?
 					`<b style="color: limegreen">Online</b>` :
 					`${Chat.toDurationString(Date.now() - date)} ago`;
-				return [nameColor(id, true), status];
+				return [SSUtils.nameColor(id, true), status];
 			});
 
-			const html = Table(`Recently Seen (${recent.length})`, ["User", "Last Seen"], dataRows);
+			const html = SSUtils.Table(`Recently Seen (${recent.length})`, ["User", "Last Seen"], dataRows);
 			this.sendReply(`|html|${html}`);
 		},
 

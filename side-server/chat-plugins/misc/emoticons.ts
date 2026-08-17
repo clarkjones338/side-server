@@ -5,7 +5,7 @@
 
 import { Utils } from '../../../lib';
 import { PG } from '../../lib/postgres';
-import { Table, nameColor } from '../../lib/ss-utils';
+import { SSUtils } from '../../lib/ss-utils';
 import { EMOTICONS_TABLE } from './database';
 
 const CONFIG = {
@@ -249,7 +249,7 @@ export const commands: Chat.ChatCommands = {
 				`<strong>Emoticon Info: ${Utils.escapeHTML(emote.name)}</strong><br />` +
 				`<img src="${Utils.escapeHTML(emote.url)}" width="40" height="40"><br />` +
 				`URL: ${Utils.escapeHTML(emote.url)}<br />` +
-				`Added by: ${nameColor(emote.addedBy, true)}`
+				`Added by: ${SSUtils.nameColor(emote.addedBy, true)}`
 			);
 		},
 
@@ -273,7 +273,7 @@ export const commands: Chat.ChatCommands = {
 				rows.push(row);
 			}
 
-			this.sendReply(`|html|${Table("Available Emoticons", [], rows)}`);
+			this.sendReply(`|html|${SSUtils.Table("Available Emoticons", [], rows)}`);
 		},
 
 		help() {

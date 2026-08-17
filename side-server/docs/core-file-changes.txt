@@ -83,6 +83,8 @@ Diff:
 --------------------------------------------------------------------------------
 Path: config/config-example.js
 Changes:
+- Added exports.serverid = 'sideserver', exports.servertoken = '', and exports.serverName = 'Side Server'
+  directly below exports.bindaddress.
 - Expanded "exports.postgres = null;" configuration block with comprehensive connection example
   for side-server PostgreSQL database (including pool settings, SSL, and connection string URL)
   directly below exports.bindaddress.
@@ -94,10 +96,31 @@ Changes:
     * Changed "promote" permission to "&u".
 
 Diff:
-@@ -15,6 +15,30 @@ exports.port = 8000;
+@@ -15,6 +15,51 @@ exports.port = 8000;
   */
  exports.bindaddress = '0.0.0.0';
  
++/**
++ * The server ID - the unique registered ID of your Pokémon Showdown side server
++ *
++ * @type {string}
++ */
++exports.serverid = 'sideserver';
++
++/**
++ * The server token - authentication token for communicating with the central Pokémon Showdown login server
++ *
++ * @type {string}
++ */
++exports.servertoken = '';
++
++/**
++ * The display name of the server
++ *
++ * @type {string}
++ */
++exports.serverName = 'Side Server';
++
 +/**
 + * postgres - PostgreSQL connection configuration for side-server database
 + * @type {import('pg').PoolConfig | string | null}
