@@ -94,6 +94,8 @@ Changes:
 - Inherits all administrative permissions identical to the admin group except:
     * Excluded "console: true" permission.
     * Changed "promote" permission to "&u".
+- Added exports.avatarUrl = ''; directly below exports.serverName to define the
+  URL prefix for serving custom avatars.
 
 Diff:
 @@ -15,6 +15,51 @@ exports.port = 8000;
@@ -120,6 +122,13 @@ Diff:
 + * @type {string}
 + */
 +exports.serverName = 'Side Server';
++
++/**
++ * Avatar URL prefix for serving custom avatars. 
++ * If not set, avatars won't be rendered.
++ * @type {string}
++ */
++exports.avatarUrl = '';
 +
 +/**
 + * postgres - PostgreSQL connection configuration for side-server database

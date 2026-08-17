@@ -37,6 +37,13 @@ exports.servertoken = '';
 exports.serverName = 'Side Server';
 
 /**
+ * Avatar URL prefix for serving custom avatars. 
+ * If not set, avatars won't be rendered.
+ * @type {string}
+ */
+exports.avatarUrl = '';
+
+/**
  * postgres - PostgreSQL connection configuration for side-server database
  * @type {import('pg').PoolConfig | string | null}
  */
