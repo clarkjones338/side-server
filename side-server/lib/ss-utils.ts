@@ -109,11 +109,26 @@ export const reloadCSS = async (serverId: string = Config.serverid || 'sideserve
 	}
 };
 
+/**
+ * Sends a server PM to a user if they are online.
+ * 
+ * Usage:
+ * - Call `sendPM('ash', 'Your color has been updated!')`
+ */
+export const sendPM = (targetUser: string, htmlMessage: string): void => {
+	const userObj = typeof Users !== 'undefined' ? Users.getExact(targetUser) : null;
+	if (userObj && userObj.connected) {
+		const serverName = typeof Config !== 'undefined' && Config.serverName ? Config.serverName : 'Server';
+		userObj.send(`|pm|~${serverName}|${userObj.getIdentity()}|/raw ${htmlMessage}`);
+	}
+};
+
 export const SSUtils = {
 	nameColor,
 	Table,
 	reloadCSS,
 	customColors,
+	sendPM,
 };
 
 export default SSUtils;

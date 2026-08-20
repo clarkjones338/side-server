@@ -400,3 +400,25 @@ import { SSUtils } from '../../lib/ss-utils';
 await SSUtils.reloadCSS();
 ```
 
+---
+
+**7.** Prefer using `SSUtils.sendPM(targetUser, htmlMessage)` to send styled server PMs to online users (like notifications for custom colors or icons), rather than manually fetching the user object and formatting the PM string. Only use it when absolutely needed (e.g., for critical alerts or important status updates), as unnecessary PMs can be disruptive to players.
+
+**Bad:**
+
+```typescript
+const targetUserObj = Users.getExact(targetId);
+if (targetUserObj && targetUserObj.connected) {
+    const serverName = Config.serverName || 'Server';
+    targetUserObj.send(`|pm|~${serverName}|${targetUserObj.getIdentity()}|/raw <div class="broadcast-green"><b>Notification!</b></div>`);
+}
+```
+
+**Good:**
+
+```typescript
+import { SSUtils } from '../../lib/ss-utils';
+
+SSUtils.sendPM(targetId, `<div class="broadcast-green"><b>Notification!</b></div>`);
+```
+
