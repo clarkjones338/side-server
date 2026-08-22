@@ -95,6 +95,7 @@ Side-server specific configuration options are defined in `config/config-example
 - **`Config.serverid`**: The registered side-server identifier (normalized ID, defaults to `'sideserver'`). Used when communicating with central login services and invalidating custom CSS (`SSUtils.reloadCSS()`).
 - **`Config.servertoken`**: Authentication token for central Pokémon Showdown login server requests.
 - **`Config.serverName`**: The display name of the server (defaults to `'Side Server'`).
+- **`Config.avatarUrl`**: Avatar URL prefix for serving custom avatars. If not set, avatars won't be rendered.
 - **`Config.postgres`**: PostgreSQL connection options for side-server database plugins.
 
 ---
@@ -273,43 +274,7 @@ Here are the required permissions you should check for each target rank group (a
 
 ## 15. Preferences
 
-**1.** Prefer using `throw new Chat.ErrorMessage` instead of legacy `this.errorReply()` for chat error handling.
-
-**Bad:**
-
-```typescript
-if (!targetUser) {
-    return this.errorReply("User not found.");
-}
-```
-
-**Good:**
-
-```typescript
-if (!targetUser) {
-    throw new Chat.ErrorMessage("User not found.");
-}
-```
-
----
-
-**2.** Prefer using `this.sendReply` with `|html|` instead of `this.sendReplyBox` unless you specifically want the box border that `this.sendReplyBox` provides.
-
-**Bad:**
-
-```typescript
-this.sendReplyBox(`<b>Welcome to the server!</b>`);
-```
-
-**Good:**
-
-```typescript
-this.sendReply(`|html|<b>Welcome to the server!</b>`);
-```
-
----
-
-**3.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { SSUtils } from '../../lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
+**1.** Prefer using the `Table` helper function from `side-server/lib/ss-utils.ts` (e.g., `import { SSUtils } from '../../lib/ss-utils'`) instead of manually constructing HTML tables. Exceptions can be made when you need to build a specialized layout or a different kind of table that cannot be represented using the standard `Table` function.
 
 **Bad:**
 
@@ -336,7 +301,7 @@ this.sendReply(`|html|${htmlOutput}`);
 
 ---
 
-**4.** Prefer using `SSUtils.nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color.
+**2.** Prefer using `SSUtils.nameColor(username, bold?, userGroup?)` when displaying usernames in chat boxes, logs, tables, or announcements. It automatically escapes the username against XSS vulnerabilities, retrieves usergroup/auth symbols, and applies their custom or Showdown-hashed color.
 
 **Bad:**
 
@@ -362,7 +327,7 @@ this.sendReplyBox(`Action performed by: ${SSUtils.nameColor(user.name, true, tru
 
 ---
 
-**5.** Structure command `help` handlers using `this.runBroadcast()` and a styled `this.sendReplyBox` that displays centered bold titles, horizontal divider rules (`<hr>`), subcommands, parameter formats, and required rank permissions.
+**3.** Structure command `help` handlers using `this.runBroadcast()` and a styled `this.sendReplyBox` that displays centered bold titles, horizontal divider rules (`<hr>`), subcommands, parameter formats, and required rank permissions.
 
 **Bad:**
 
@@ -391,7 +356,7 @@ help() {
 
 ---
 
-**6.** Use `SSUtils.reloadCSS()` to invalidate and refresh custom server CSS on the central Pokémon Showdown server. It defaults to using `Config.serverid` (with a `'sideserver'` fallback), or accepts an explicit server ID override.
+**4.** Use `SSUtils.reloadCSS()` to invalidate and refresh custom server CSS on the central Pokémon Showdown server. It defaults to using `Config.serverid` (with a `'sideserver'` fallback), or accepts an explicit server ID override.
 
 ```typescript
 import { SSUtils } from '../../lib/ss-utils';
@@ -402,7 +367,7 @@ await SSUtils.reloadCSS();
 
 ---
 
-**7.** Prefer using `SSUtils.sendPM(targetUser, htmlMessage)` to send styled server PMs to online users (like notifications for custom colors or icons), rather than manually fetching the user object and formatting the PM string. Only use it when absolutely needed (e.g., for critical alerts or important status updates), as unnecessary PMs can be disruptive to players.
+**5.** Prefer using `SSUtils.sendPM(targetUser, htmlMessage)` to send styled server PMs to online users (like notifications for custom colors or icons), rather than manually fetching the user object and formatting the PM string. Only use it when absolutely needed (e.g., for critical alerts or important status updates), as unnecessary PMs can be disruptive to players.
 
 **Bad:**
 

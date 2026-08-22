@@ -20,7 +20,7 @@ export const SideMod = {
 	 */
 	allowPassInFormat(...formats: string[]) {
 		for (const format of formats) {
-			const formatId = format.toLowerCase().replace(/[^a-z0-9]/g, '');
+			const formatId = toID(format);
 			if (formatId) passBypassFormats.add(formatId);
 		}
 	},
@@ -30,7 +30,7 @@ export const SideMod = {
 	 */
 	removePassInFormat(...formats: string[]) {
 		for (const format of formats) {
-			const formatId = format.toLowerCase().replace(/[^a-z0-9]/g, '');
+			const formatId = toID(format);
 			if (formatId) passBypassFormats.delete(formatId);
 		}
 	},
@@ -185,7 +185,7 @@ export const SideMod = {
 
 	// side.ts helpers
 	isPassBypassFormat(formatId: string): boolean {
-		const id = formatId.toLowerCase().replace(/[^a-z0-9]/g, '');
+		const id = toID(formatId);
 		return passBypassFormats.has(id);
 	},
 
